@@ -1,0 +1,64 @@
+library(tidyverse)
+library(tidytuesdayR)
+library(lubridate)
+library(ggmap)
+library(gganimate)
+
+## Load Dataset
+w49 <- tidytuesdayR::tt_load("2020", "49")$shelters
+
+## Exploration
+w49 %>%
+  group_by(occupancy_date) %>% 
+  mutate(occ_by_date = sum(occupancy)) %>% 
+  ggplot(aes(occupancy_date, occ_by_date)) +
+  geom_point()
+
+## Register GG Map with Google and load Toronto Map Data
+#register_google("Your API Key", write = TRUE)
+map <- ggmap::get_map(location = "Toronto",
+               zoom=13,
+               maptype="toner")
+
+## Testing geocode on Toronto street addresses
+geocode("100 Lippincott Street")
+
+## Isolate unique addresses to run mutate_geocode to get coords.
+## In hindsight I found that I likely missed a few addresses, but wasn't aware of a quick solution for this. Recommendations welcome, hit me up on R4DS Slack at KDaily or Twitter @kdfs16.
+w49 %>% 
+  group_by(shelter_address) %>% 
+  summarise(n()) %>% 
+  mutate_geocode(shelter_address) -> w49_geo
+
+## Join long/lat coords back to original dataset
+left_join(w49, w49_geo) -> w49
+
+
+## Testing the map and plotting the addresses
+ggmap(map) +
+  geom_point(data = w49, aes(lon,lat))
+
+
+## Testing the final map with a smaller sample of data
+w49_today <- w49 %>% 
+  filter(occupancy_date > "2019-12-30")
+
+ggmap(map) +
+  geom_point(data = w49_today, aes(lon,lat, size = capacity), alpha = .5, color = "blue") +
+  geom_point(data = w49_today, aes(lon,lat, size = occupancy), alpha = .5, color = "red") +
+  scale_size(range = c(0,30))
+
+## Final Map using GGAnimate
+# homless_anim <-
+ggmap(map) +
+  geom_point(data = w49, aes(lon,lat, size = capacity), alpha = .5, color = "blue") +
+  geom_point(data = w49, aes(lon,lat, size = occupancy), alpha = .1, color = "red") +
+  scale_size(range = c(0,30)) +
+  labs(title = 'Date: {frame_time}') +
+  transition_time(w49$occupancy_date)
+
+## Here, was hoping to increase the size and resolution of the GIF, but got some very strange results and decided to give up on that pursuit.
+# animate(homless_anim, height = 4, width = 4, unit = "in", res = 150)
+
+## Save out the animation in my current plot to the here:: location of my project.
+anim_save("Toronto_Homelessness_Growth.gif")
