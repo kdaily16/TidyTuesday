@@ -1,0 +1,29 @@
+library(tidyverse)
+library(tidytuesdayR)
+library(wordcloud2)
+library(tidytext)
+library(here)
+
+## Load Dataset
+w50 <- tidytuesdayR::tt_load("2020", "50")$women
+
+## Viz
+# Pull colors from BBC web page
+w50_col <- c("#fe5e01", "#ec1883", "#2fca50", "#38c0df")
+
+w50 %>% 
+  select(description) %>% 
+  mutate(description = tolower(description)) %>% 
+  unnest_tokens(word, description) %>% 
+  anti_join(stop_words) %>% 
+  group_by(word) %>% 
+  summarise(count = n()) %>% 
+  arrange(-count) %>% 
+  head(400) %>% 
+  filter(!word == "women") %>% 
+  wordcloud2(color = rep_len(w50_col, nrow(.)),
+             size = .5,
+             backgroundColor = "000000",
+             fontFamily = "Alte Haas Grotesk",
+             rotateRatio = .3,
+             figPath = "Woman_Mask.jpg")
